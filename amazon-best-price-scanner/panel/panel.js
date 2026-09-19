@@ -17,9 +17,12 @@
     scanned: 0,
     total: 0,
     scanning: false,
+    blockedUntil: null,
   };
 
   let eventsBound = false;
+  let hideProgressTimer = null;
+  let blockedCountdownTimer = null;
 
   function el(id) {
     return document.getElementById(id);
@@ -32,11 +35,13 @@
     state.scanned = 0;
     state.total = variants.length;
     state.scanning = true;
+    state.blockedUntil = null;
 
     const root = el('abps-panel-root');
     if (root) root.style.display = 'block';
 
     bindPanelEvents();
+    hideBlockedBanner();
     updateProgress();
     renderSummary();
     renderTable();
@@ -132,6 +137,11 @@
       updateProgress();
       renderSummary();
       renderTable();
+    } else if (message.type === 'BLOCKED') {
+      state.scanning = false;
+      state.blockedUntil = message.retryAt;
+      updateProgress();
+      showBlockedBanner(message.retryAt);
     }
   }
 
@@ -144,14 +154,67 @@
     const wrap = el('abps-progress-wrap');
     if (!wrap) return;
 
+    clearTimeout(hideProgressTimer);
+    wrap.classList.remove('abps-progress-done');
+
     if (state.scanning) {
       wrap.hidden = false;
       const pct = state.total ? Math.round((state.scanned / state.total) * 100) : 0;
       el('abps-progress-fill').style.width = `${pct}%`;
       el('abps-progress-label').textContent = `Fetching: ${state.scanned} / ${state.total}`;
-    } else {
-      wrap.hidden = true;
+      return;
     }
+
+    if (state.blockedUntil || state.total === 0) {
+      wrap.hidden = true;
+      return;
+    }
+
+    // Briefly show a completed state instead of the bar just vanishing.
+    wrap.hidden = false;
+    wrap.classList.add('abps-progress-done');
+    el('abps-progress-fill').style.width = '100%';
+    el('abps-progress-label').textContent = `✓ Done — ${state.total} variants`;
+    hideProgressTimer = setTimeout(() => {
+      wrap.hidden = true;
+    }, 2500);
+  }
+
+  function showBlockedBanner(retryAt) {
+    const banner = el('abps-blocked-banner');
+    const rescanBtn = el('abps-scan-again');
+    if (!banner) return;
+
+    banner.hidden = false;
+    rescanBtn.disabled = true;
+
+    clearInterval(blockedCountdownTimer);
+    const tick = () => {
+      const remainingMs = retryAt - Date.now();
+      if (remainingMs <= 0) {
+        el('abps-blocked-text').textContent = 'You can try scanning again now.';
+        el('abps-blocked-countdown').textContent = '';
+        rescanBtn.disabled = false;
+        clearInterval(blockedCountdownTimer);
+        return;
+      }
+      const totalSec = Math.ceil(remainingMs / 1000);
+      const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+      const ss = String(totalSec % 60).padStart(2, '0');
+      el('abps-blocked-text').textContent =
+        'Amazon is temporarily limiting requests from this network. This wait time is an estimate, not an official figure.';
+      el('abps-blocked-countdown').textContent = `Try again in ${mm}:${ss}`;
+    };
+    tick();
+    blockedCountdownTimer = setInterval(tick, 1000);
+  }
+
+  function hideBlockedBanner() {
+    clearInterval(blockedCountdownTimer);
+    const banner = el('abps-blocked-banner');
+    if (banner) banner.hidden = true;
+    const rescanBtn = el('abps-scan-again');
+    if (rescanBtn) rescanBtn.disabled = false;
   }
 
   // Best { price, variantName, asin } seen so far for one condition, or null.
