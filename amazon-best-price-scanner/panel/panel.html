@@ -1,0 +1,32 @@
+<div class="abps-panel" id="abps-panel">
+  <div class="abps-header" id="abps-drag-handle">
+    <span class="abps-title">Amazon Best Price Scanner</span>
+    <div class="abps-header-actions">
+      <button id="abps-scan-again" class="abps-icon-btn" title="Re-scan">⟳</button>
+      <button id="abps-close" class="abps-icon-btn" title="Close">✕</button>
+    </div>
+  </div>
+
+  <div class="abps-tabs" id="abps-tabs">
+    <button class="abps-tab" data-condition="new">New</button>
+    <button class="abps-tab" data-condition="like_new">Like New</button>
+    <button class="abps-tab active" data-condition="very_good">Very Good</button>
+    <button class="abps-tab" data-condition="good">Good</button>
+    <button class="abps-tab" data-condition="acceptable">Acceptable</button>
+  </div>
+
+  <div class="abps-status" id="abps-status">Showing: — 0 variants</div>
+
+  <div class="abps-table-wrap">
+    <table class="abps-table">
+      <tbody id="abps-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="abps-progress-wrap" id="abps-progress-wrap" hidden>
+    <div class="abps-progress-bar">
+      <div class="abps-progress-fill" id="abps-progress-fill"></div>
+    </div>
+    <span class="abps-progress-label" id="abps-progress-label">Fetching: 0 / 0</span>
+  </div>
+</div>

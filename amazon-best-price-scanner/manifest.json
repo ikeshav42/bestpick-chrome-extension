@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Amazon Best Price Scanner",
+  "version": "1.0",
+  "description": "Find the cheapest variant for any condition across all product variants.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "host_permissions": ["https://www.amazon.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.amazon.com/dp/*",
+        "https://www.amazon.com/*/dp/*",
+        "https://www.amazon.com/gp/product/*",
+        "https://www.amazon.com/*/gp/product/*"
+      ],
+      "js": ["content.js", "panel/panel.js"],
+      "css": ["panel/panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["panel/panel.html"],
+      "matches": ["https://www.amazon.com/*"]
+    }
+  ]
+}
