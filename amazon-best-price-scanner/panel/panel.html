@@ -7,20 +7,68 @@
     </div>
   </div>
 
-  <div class="abps-tabs" id="abps-tabs">
-    <button class="abps-tab" data-condition="new">New</button>
-    <button class="abps-tab" data-condition="like_new">Like New</button>
-    <button class="abps-tab active" data-condition="very_good">Very Good</button>
-    <button class="abps-tab" data-condition="good">Good</button>
-    <button class="abps-tab" data-condition="acceptable">Acceptable</button>
+  <div class="abps-screen" id="abps-summary">
+    <button class="abps-hero" id="abps-hero">
+      <div class="abps-hero-label">Best Overall Price</div>
+      <div class="abps-hero-price" id="abps-hero-price">—</div>
+      <div class="abps-hero-meta" id="abps-hero-meta">Scanning…</div>
+    </button>
+
+    <div class="abps-cards" id="abps-cards">
+      <button class="abps-card" data-condition="new">
+        <div class="abps-card-label">New</div>
+        <div class="abps-card-price" data-role="price">—</div>
+        <div class="abps-card-name" data-role="name"></div>
+      </button>
+      <button class="abps-card" data-condition="like_new">
+        <div class="abps-card-label">Like New</div>
+        <div class="abps-card-price" data-role="price">—</div>
+        <div class="abps-card-name" data-role="name"></div>
+      </button>
+      <button class="abps-card" data-condition="very_good">
+        <div class="abps-card-label">Very Good</div>
+        <div class="abps-card-price" data-role="price">—</div>
+        <div class="abps-card-name" data-role="name"></div>
+      </button>
+      <button class="abps-card" data-condition="good">
+        <div class="abps-card-label">Good</div>
+        <div class="abps-card-price" data-role="price">—</div>
+        <div class="abps-card-name" data-role="name"></div>
+      </button>
+      <button class="abps-card" data-condition="acceptable">
+        <div class="abps-card-label">Acceptable</div>
+        <div class="abps-card-price" data-role="price">—</div>
+        <div class="abps-card-name" data-role="name"></div>
+      </button>
+    </div>
   </div>
 
-  <div class="abps-status" id="abps-status">Showing: — 0 variants</div>
+  <div class="abps-screen" id="abps-detail" hidden>
+    <button class="abps-back" id="abps-back">← Summary</button>
 
-  <div class="abps-table-wrap">
-    <table class="abps-table">
-      <tbody id="abps-tbody"></tbody>
-    </table>
+    <div class="abps-tabs" id="abps-tabs">
+      <button class="abps-tab" data-condition="new">New</button>
+      <button class="abps-tab" data-condition="like_new">Like New</button>
+      <button class="abps-tab active" data-condition="very_good">Very Good</button>
+      <button class="abps-tab" data-condition="good">Good</button>
+      <button class="abps-tab" data-condition="acceptable">Acceptable</button>
+    </div>
+
+    <div class="abps-toolbar">
+      <span class="abps-status" id="abps-status">Showing: — 0 variants</span>
+      <select class="abps-sort" id="abps-sort" title="Sort by">
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="name_asc">Name: A–Z</option>
+        <option value="name_desc">Name: Z–A</option>
+      </select>
+    </div>
+
+    <div class="abps-table-wrap">
+      <table class="abps-table">
+        <tbody id="abps-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="abps-progress-wrap" id="abps-progress-wrap" hidden>

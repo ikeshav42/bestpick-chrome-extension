@@ -6,11 +6,14 @@
     good: 'Used — Good',
     acceptable: 'Used — Acceptable',
   };
+  const CONDITION_KEYS = Object.keys(CONDITION_LABELS);
 
   const state = {
     variants: [],
     results: {}, // asin -> { name, prices }
+    view: 'summary', // 'summary' | 'detail'
     activeCondition: 'very_good',
+    sortBy: 'price_asc',
     scanned: 0,
     total: 0,
     scanning: false,
@@ -25,6 +28,7 @@
   function openPanel(variants) {
     state.variants = variants;
     state.results = {};
+    state.view = 'summary';
     state.scanned = 0;
     state.total = variants.length;
     state.scanning = true;
@@ -34,7 +38,9 @@
 
     bindPanelEvents();
     updateProgress();
+    renderSummary();
     renderTable();
+    applyView();
 
     chrome.runtime.sendMessage({ type: 'SCAN', variants });
   }
@@ -52,11 +58,39 @@
       openPanel(state.variants);
     });
 
-    document.querySelectorAll('.abps-tab').forEach((tab) => {
+    el('abps-back').addEventListener('click', () => {
+      state.view = 'summary';
+      applyView();
+    });
+
+    el('abps-hero').addEventListener('click', () => {
+      const best = overallBest();
+      if (!best) return;
+      state.activeCondition = best.condition;
+      state.view = 'detail';
+      applyView();
+      renderTable();
+    });
+
+    document.querySelectorAll('#abps-cards .abps-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        state.activeCondition = card.dataset.condition;
+        state.view = 'detail';
+        applyView();
+        renderTable();
+      });
+    });
+
+    document.querySelectorAll('#abps-tabs .abps-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
         state.activeCondition = tab.dataset.condition;
         renderTable();
       });
+    });
+
+    el('abps-sort').addEventListener('change', (e) => {
+      state.sortBy = e.target.value;
+      renderTable();
     });
 
     makeDraggable(el('abps-panel'), el('abps-drag-handle'));
@@ -91,11 +125,19 @@
       state.results[message.asin] = { name: message.name, prices: message.prices };
       state.scanned += 1;
       updateProgress();
+      renderSummary();
       renderTable();
     } else if (message.type === 'DONE') {
       state.scanning = false;
       updateProgress();
+      renderSummary();
+      renderTable();
     }
+  }
+
+  function applyView() {
+    el('abps-summary').hidden = state.view !== 'summary';
+    el('abps-detail').hidden = state.view !== 'detail';
   }
 
   function updateProgress() {
@@ -112,8 +154,82 @@
     }
   }
 
+  // Best { price, variantName, asin } seen so far for one condition, or null.
+  function bestForCondition(condition) {
+    let best = null;
+    for (const result of Object.values(state.results)) {
+      const entry = result.prices[condition];
+      if (entry && (!best || entry.price < best.price)) {
+        best = { price: entry.price, variantName: result.name, asin: null };
+      }
+    }
+    return best;
+  }
+
+  function overallBest() {
+    let best = null;
+    for (const condition of CONDITION_KEYS) {
+      const candidate = bestForCondition(condition);
+      if (candidate && (!best || candidate.price < best.price)) {
+        best = { ...candidate, condition };
+      }
+    }
+    return best;
+  }
+
   function conditionHasAnyResults(condition) {
     return Object.values(state.results).some((r) => r.prices[condition]);
+  }
+
+  function renderSummary() {
+    const heroPrice = el('abps-hero-price');
+    const heroMeta = el('abps-hero-meta');
+    if (!heroPrice) return;
+
+    const best = overallBest();
+    if (best) {
+      heroPrice.textContent = `$${best.price.toFixed(2)}`;
+      heroMeta.textContent = `${best.variantName} — ${CONDITION_LABELS[best.condition]}`;
+    } else {
+      heroPrice.textContent = '—';
+      heroMeta.textContent = state.scanning ? 'Scanning…' : 'No offers found';
+    }
+
+    document.querySelectorAll('#abps-cards .abps-card').forEach((card) => {
+      const condition = card.dataset.condition;
+      const priceEl = card.querySelector('[data-role="price"]');
+      const nameEl = card.querySelector('[data-role="name"]');
+      const candidate = bestForCondition(condition);
+
+      if (candidate) {
+        priceEl.textContent = `$${candidate.price.toFixed(2)}`;
+        nameEl.textContent = candidate.variantName;
+      } else {
+        priceEl.textContent = '—';
+        nameEl.textContent = '';
+      }
+
+      const doneScanning = state.scanned === state.total && !state.scanning;
+      card.classList.toggle('empty', doneScanning && !candidate);
+    });
+  }
+
+  function compareRows(a, b, sortBy) {
+    if (a.price == null && b.price == null) return a.name.localeCompare(b.name);
+    if (a.price == null) return 1;
+    if (b.price == null) return -1;
+
+    switch (sortBy) {
+      case 'price_desc':
+        return b.price - a.price;
+      case 'name_asc':
+        return a.name.localeCompare(b.name);
+      case 'name_desc':
+        return b.name.localeCompare(a.name);
+      case 'price_asc':
+      default:
+        return a.price - b.price;
+    }
   }
 
   function renderTable() {
@@ -121,7 +237,7 @@
     const status = el('abps-status');
     if (!tbody) return;
 
-    document.querySelectorAll('.abps-tab').forEach((tab) => {
+    document.querySelectorAll('#abps-tabs .abps-tab').forEach((tab) => {
       const condition = tab.dataset.condition;
       tab.classList.toggle('active', condition === state.activeCondition);
       const doneScanning = state.scanned === state.total && !state.scanning;
@@ -139,14 +255,12 @@
       };
     });
 
-    rows.sort((a, b) => {
-      if (a.price == null && b.price == null) return 0;
-      if (a.price == null) return 1;
-      if (b.price == null) return -1;
-      return a.price - b.price;
-    });
+    const cheapest = rows.reduce(
+      (min, r) => (r.price != null && (min == null || r.price < min) ? r.price : min),
+      null
+    );
 
-    const cheapest = rows.find((r) => r.price != null)?.price;
+    rows.sort((a, b) => compareRows(a, b, state.sortBy));
 
     tbody.innerHTML = rows
       .map((row) => {
