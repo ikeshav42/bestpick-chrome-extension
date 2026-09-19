@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Amazon Best Price Scanner",
+  "name": "BestPick",
   "version": "1.0",
-  "description": "Find the cheapest variant for any condition across all product variants.",
+  "description": "Find the cheapest variant and condition across an Amazon product's listing. Not affiliated with Amazon.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -11,7 +11,8 @@
   "permissions": ["storage"],
   "host_permissions": ["https://www.amazon.com/*"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background/index.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -21,7 +22,7 @@
         "https://www.amazon.com/gp/product/*",
         "https://www.amazon.com/*/gp/product/*"
       ],
-      "js": ["content.js", "panel/panel.js"],
+      "js": ["content.js", "panel/state.js", "panel/render.js", "panel/events.js", "panel/panel.js"],
       "css": ["panel/panel.css"],
       "run_at": "document_idle"
     }
