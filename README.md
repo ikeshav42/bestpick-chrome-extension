@@ -59,7 +59,7 @@ BestPick is an independent personal-use tool. It is not affiliated with, endorse
 
 ## Development note
 
-Built with AI assistance (Claude) — used to design, implement, debug, and iterate on the architecture and UI.
+Built with AI assistance — used to design, implement, debug, and iterate on the architecture and UI.
 
 ## License
 
