@@ -1,5 +1,5 @@
 (function (BestPick) {
-  const { state, el, overallBest, applyView, renderTable } = BestPick;
+  const { state, el, overallBest, applyView, renderTable, computeFilteredVariants } = BestPick;
 
   let eventsBound = false;
 
@@ -13,12 +13,31 @@
 
     el('abps-scan-again').addEventListener('click', () => {
       if (state.scanning) return;
-      BestPick.openPanel(state.variants);
+      BestPick.runScanFor(state.variants);
     });
 
     el('abps-back').addEventListener('click', () => {
       state.view = 'summary';
       applyView();
+    });
+
+    el('abps-back-to-filters').addEventListener('click', () => {
+      state.view = 'filters';
+      BestPick.renderFilters();
+      applyView();
+    });
+
+    el('abps-filter-fields').addEventListener('change', (e) => {
+      const field = e.target.closest('[data-dim]');
+      if (!field) return;
+      state.filters[field.dataset.dim] = e.target.value;
+      BestPick.updateFilterWarning();
+    });
+
+    el('abps-filter-scan').addEventListener('click', () => {
+      const variants = computeFilteredVariants(state.dimensionData, state.filters);
+      if (!variants.length) return;
+      BestPick.runScanFor(variants);
     });
 
     el('abps-hero').addEventListener('click', () => {

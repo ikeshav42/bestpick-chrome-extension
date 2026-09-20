@@ -32,8 +32,8 @@
   position: fixed;
   top: 80px;
   right: 24px;
-  width: 380px;
-  max-height: 70vh;
+  width: 440px;
+  max-height: 75vh;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -141,16 +141,32 @@
 }
 
 .abps-hero-price {
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 800;
   color: #ff9900;
   margin-top: 2px;
 }
 
+.abps-hero-pack[hidden],
+.abps-card-pack[hidden] {
+  display: none;
+}
+
+.abps-hero-pack {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b8bec4;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
 .abps-hero-meta {
   font-size: 12px;
   color: #e5e5e5;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .abps-cards {
@@ -189,10 +205,21 @@
 }
 
 .abps-card-price {
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 800;
   color: #0f7b0f;
   margin-top: 2px;
+}
+
+.abps-card-pack {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #767676;
+  background: #eee;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-top: 3px;
 }
 
 .abps-card-name {
@@ -203,6 +230,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.abps-pack-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #767676;
+  background: #eee;
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-top: 2px;
 }
 
 .abps-back {
@@ -218,6 +256,68 @@
 
 .abps-back:hover {
   text-decoration: underline;
+}
+
+.abps-filters-intro {
+  font-size: 12px;
+  color: #555;
+  padding: 12px 12px 4px;
+  line-height: 1.4;
+}
+
+.abps-filter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.abps-filter-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 3px;
+}
+
+.abps-filter-field select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #d5d9d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
+}
+
+.abps-filter-warning {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  background: #fff8e5;
+  border: 1px solid #f0c14b;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #8a6d1a;
+}
+
+.abps-filter-warning[hidden] {
+  display: none;
+}
+
+.abps-filter-scan {
+  margin: 4px 12px 12px;
+  padding: 10px;
+  background: #ff9900;
+  color: #111;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.abps-filter-scan:hover {
+  background: #e88a00;
 }
 
 .abps-toolbar {

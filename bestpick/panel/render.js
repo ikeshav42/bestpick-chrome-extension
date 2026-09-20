@@ -1,14 +1,83 @@
 (function (BestPick) {
-  const { state, el, CONDITION_LABELS, bestForCondition, overallBest, conditionHasAnyResults, compareRows, escapeHtml } =
-    BestPick;
+  const {
+    state,
+    el,
+    CONDITION_LABELS,
+    bestForCondition,
+    overallBest,
+    conditionHasAnyResults,
+    compareRows,
+    escapeHtml,
+    getPackInfo,
+    distinctDimensionValues,
+    computeFilteredVariants,
+    MAX_SCAN_VARIANTS,
+  } = BestPick;
+
+  function packLabel(info) {
+    return `${info.qty}-pack · $${info.perUnit.toFixed(2)}/unit`;
+  }
 
   let hideProgressTimer = null;
   let blockedCountdownTimer = null;
 
   BestPick.applyView = function applyView() {
+    el('abps-filters').hidden = state.view !== 'filters';
     el('abps-summary').hidden = state.view !== 'summary';
     el('abps-detail').hidden = state.view !== 'detail';
+    el('abps-back-to-filters').hidden = !state.dimensionData;
   };
+
+  BestPick.renderFilters = function renderFilters() {
+    const container = el('abps-filter-fields');
+    if (!container || !state.dimensionData) return;
+
+    const { dimensions, labels } = state.dimensionData;
+
+    container.innerHTML = dimensions
+      .map((dim, i) => {
+        const values = distinctDimensionValues(state.dimensionData, i);
+        const selected = state.filters[dim] || 'ANY';
+        const options = ['ANY', ...values]
+          .map((v) => {
+            const label = v === 'ANY' ? 'Any' : v;
+            const isSelected = v === selected ? ' selected' : '';
+            return `<option value="${escapeHtml(v)}"${isSelected}>${escapeHtml(label)}</option>`;
+          })
+          .join('');
+        return `
+          <div class="abps-filter-field" data-dim="${escapeHtml(dim)}">
+            <label>${escapeHtml(labels[dim] || dim)}</label>
+            <select>${options}</select>
+          </div>`;
+      })
+      .join('');
+
+    updateFilterWarning();
+  };
+
+  function updateFilterWarning() {
+    const warning = el('abps-filter-warning');
+    const scanBtn = el('abps-filter-scan');
+    if (!warning || !state.dimensionData) return;
+
+    const matches = computeFilteredVariants(state.dimensionData, state.filters);
+    if (matches.length > MAX_SCAN_VARIANTS) {
+      warning.hidden = false;
+      warning.textContent = `${matches.length} combinations match — narrow at least one more filter (max ${MAX_SCAN_VARIANTS} per scan).`;
+      scanBtn.disabled = true;
+    } else if (matches.length === 0) {
+      warning.hidden = false;
+      warning.textContent = 'No combinations match this selection.';
+      scanBtn.disabled = true;
+    } else {
+      warning.hidden = true;
+      scanBtn.disabled = false;
+      scanBtn.textContent = `Scan ${matches.length} ${matches.length === 1 ? 'option' : 'options'}`;
+    }
+  }
+
+  BestPick.updateFilterWarning = updateFilterWarning;
 
   BestPick.updateProgress = function updateProgress() {
     const wrap = el('abps-progress-wrap');
@@ -82,27 +151,39 @@
     const heroMeta = el('abps-hero-meta');
     if (!heroPrice) return;
 
+    const heroPack = el('abps-hero-pack');
     const best = overallBest();
     if (best) {
       heroPrice.textContent = `$${best.price.toFixed(2)}`;
       heroMeta.textContent = `${best.variantName} — ${CONDITION_LABELS[best.condition]}`;
+
+      const pack = getPackInfo(best.price, best.variantName);
+      heroPack.hidden = !pack;
+      if (pack) heroPack.textContent = packLabel(pack);
     } else {
       heroPrice.textContent = '—';
       heroMeta.textContent = state.scanning ? 'Scanning…' : 'No offers found';
+      heroPack.hidden = true;
     }
 
     document.querySelectorAll('#abps-cards .abps-card').forEach((card) => {
       const condition = card.dataset.condition;
       const priceEl = card.querySelector('[data-role="price"]');
+      const packEl = card.querySelector('[data-role="pack"]');
       const nameEl = card.querySelector('[data-role="name"]');
       const candidate = bestForCondition(condition);
 
       if (candidate) {
         priceEl.textContent = `$${candidate.price.toFixed(2)}`;
         nameEl.textContent = candidate.variantName;
+
+        const pack = getPackInfo(candidate.price, candidate.variantName);
+        packEl.hidden = !pack;
+        if (pack) packEl.textContent = packLabel(pack);
       } else {
         priceEl.textContent = '—';
         nameEl.textContent = '';
+        packEl.hidden = true;
       }
 
       const doneScanning = state.scanned === state.total && !state.scanning;
@@ -143,6 +224,8 @@
     tbody.innerHTML = rows
       .map((row) => {
         const priceLabel = row.pending ? '…' : row.price != null ? `$${row.price.toFixed(2)}` : '—';
+        const pack = row.price != null ? getPackInfo(row.price, row.name) : null;
+        const packBadge = pack ? `<div class="abps-pack-badge">${escapeHtml(packLabel(pack))}</div>` : '';
         const isBest = row.price != null && row.price === cheapest;
         const rowClass = row.price == null && !row.pending ? 'abps-dim' : '';
         const url = `https://www.amazon.com/gp/offer-listing/${row.asin}`;
@@ -156,7 +239,7 @@
         return `
           <tr class="${rowClass}">
             <td>${isBest ? '★ ' : ''}${escapeHtml(row.name)}</td>
-            <td>${priceLabel}</td>
+            <td>${priceLabel}${packBadge}</td>
             <td>${link}</td>
           </tr>`;
       })

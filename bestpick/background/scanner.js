@@ -28,6 +28,10 @@ async function runScan(variants, tabId, scanId) {
   const queue = [...variants];
   let blockedHits = 0;
   let aborted = false;
+  // Cap the threshold at the scan size — otherwise a small scan (e.g. 2
+  // variants) can never accumulate enough blocked hits to trip it, and a
+  // fully-blocked scan silently reports "no offers" instead of backing off.
+  const blockThreshold = Math.min(BLOCK_THRESHOLD, variants.length);
 
   async function worker() {
     while (queue.length) {
@@ -41,7 +45,7 @@ async function runScan(variants, tabId, scanId) {
         blockedHits += 1;
         // Enough confirmed blocks means the network is flagged, not that
         // this one variant has no offers — stop hammering it and back off.
-        if (blockedHits >= BLOCK_THRESHOLD) {
+        if (blockedHits >= blockThreshold) {
           aborted = true;
           queue.length = 0;
           const retryAt = await startCooldown();

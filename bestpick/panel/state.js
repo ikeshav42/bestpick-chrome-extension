@@ -14,16 +14,24 @@ window.BestPick = window.BestPick || {};
   };
   BestPick.CONDITION_KEYS = Object.keys(BestPick.CONDITION_LABELS);
 
+  // Above this, filtering down to one specific combination before scanning
+  // stops being "convenient" and starts being "scan a whole product family,"
+  // which is both slow and the kind of request volume that gets a network
+  // flagged as a bot — so we require the user to narrow further instead.
+  BestPick.MAX_SCAN_VARIANTS = 30;
+
   BestPick.state = {
     variants: [],
     results: {}, // asin -> { name, prices }
-    view: 'summary', // 'summary' | 'detail'
+    view: 'summary', // 'filters' | 'summary' | 'detail'
     activeCondition: 'very_good',
     sortBy: 'price_asc',
     scanned: 0,
     total: 0,
     scanning: false,
     blockedUntil: null,
+    dimensionData: null, // { dimensions, labels, valuesByAsin, currentAsin } | null
+    filters: {}, // dimension key -> selected value, or 'ANY'
   };
 
   BestPick.el = function el(id) {
@@ -73,6 +81,52 @@ window.BestPick = window.BestPick || {};
       default:
         return a.price - b.price;
     }
+  };
+
+  // Multi-unit variants ("Pack of 10", "4-Pack", "Set of 3") show up across
+  // many listings — comparing their raw price against a single-unit variant
+  // is misleading, so callers use this to show a per-unit price alongside it.
+  BestPick.extractPackQuantity = function extractPackQuantity(name) {
+    const match = name.match(/(?:pack of|set of)\s*(\d+)|(\d+)\s*[- ]?pack\b/i);
+    if (!match) return 1;
+    const qty = parseInt(match[1] || match[2], 10);
+    return qty > 1 ? qty : 1;
+  };
+
+  // Returns { qty, perUnit } for a multi-unit variant, or null for a single unit.
+  BestPick.getPackInfo = function getPackInfo(price, name) {
+    const qty = BestPick.extractPackQuantity(name);
+    return qty > 1 ? { qty, perUnit: price / qty } : null;
+  };
+
+  // Distinct values for one dimension, in first-seen order, across every
+  // ASIN in the discovered variant matrix.
+  BestPick.distinctDimensionValues = function distinctDimensionValues(dimensionData, dimIndex) {
+    const seen = new Set();
+    const values = [];
+    for (const dims of Object.values(dimensionData.valuesByAsin)) {
+      const v = dims[dimIndex];
+      if (v != null && !seen.has(v)) {
+        seen.add(v);
+        values.push(v);
+      }
+    }
+    return values;
+  };
+
+  // ASINs matching the current filter selection ('ANY' or unset matches
+  // every value for that dimension), built from the discovered matrix.
+  BestPick.computeFilteredVariants = function computeFilteredVariants(dimensionData, filters) {
+    const { dimensions, valuesByAsin } = dimensionData;
+    const matches = [];
+    for (const [asin, values] of Object.entries(valuesByAsin)) {
+      const isMatch = dimensions.every((dim, i) => {
+        const filterVal = filters[dim];
+        return !filterVal || filterVal === 'ANY' || values[i] === filterVal;
+      });
+      if (isMatch) matches.push({ asin, name: values.join(' / ') });
+    }
+    return matches;
   };
 
   BestPick.escapeHtml = function escapeHtml(str) {
