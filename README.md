@@ -2,6 +2,8 @@
 
 A Chrome extension that scans every variant on an Amazon product listing and finds the cheapest option across every condition — New, Like New, Very Good, Good, and Acceptable — in one pass.
 
+**[Get it on the Chrome Web Store →](https://chromewebstore.google.com/detail/bestpick/pgfllnifhaeoglmpdafpmmodfalpckln)**
+
 ![BestPick open on an Amazon product page](assets/screenshot-hero.png)
 
 ## What it does
@@ -25,6 +27,10 @@ Amazon product pages often have dozens of variants (color, size, style), each wi
 ![Detail view with sort](assets/screenshot-detail-new.png)
 
 ## Install
+
+**Chrome Web Store (recommended):** [Install BestPick](https://chromewebstore.google.com/detail/bestpick/pgfllnifhaeoglmpdafpmmodfalpckln)
+
+**From source (for development):**
 
 1. Clone or download this repo.
 2. Go to `chrome://extensions`, enable **Developer mode**.
