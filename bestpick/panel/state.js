@@ -129,10 +129,7 @@ window.BestPick = window.BestPick || {};
     return matches;
   };
 
-  BestPick.escapeHtml = function escapeHtml(str) {
-    return str.replace(
-      /[&<>"']/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
-    );
-  };
+  // Every value that reaches the DOM from Amazon's page data is set via
+  // textContent / element properties, so there is no markup-escaping helper
+  // here on purpose — an escape-based one is easy to forget at a call site.
 })(window.BestPick);
