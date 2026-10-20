@@ -1,0 +1,8 @@
+{
+  "name": "bestpick",
+  "version": "1.1.1",
+  "private": true,
+  "description": "BestPick - find the cheapest variant and condition across an Amazon product's listing. Not affiliated with Amazon.",
+  "license": "MIT",
+  "author": "Keshav Sundararaman"
+}

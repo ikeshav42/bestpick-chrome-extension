@@ -12,6 +12,7 @@ export async function startCooldown() {
   const duration = Math.min(BASE_COOLDOWN_MS * 2 ** streak, MAX_COOLDOWN_MS);
   const until = Date.now() + duration;
   await chrome.storage.local.set({ [COOLDOWN_KEY]: until, [STREAK_KEY]: streak + 1 });
+  console.debug('Cooldown active', { until, duration, streak: streak + 1 });
   return until;
 }
 

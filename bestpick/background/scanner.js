@@ -1,4 +1,4 @@
-import { CONCURRENCY, MIN_DELAY_MS, JITTER_MS, BLOCK_THRESHOLD } from './config.js';
+import { CONCURRENCY, MIN_DELAY_MS, JITTER_MS, BLOCK_THRESHOLD, BASE_COOLDOWN_MS } from './config.js';
 import { getCooldown, startCooldown, clearBlockStreak } from './cooldown.js';
 import { emptyConditions, parseAllConditions, isBlockedPage } from './parser.js';
 
@@ -14,11 +14,60 @@ function isCurrentScan(scanId) {
   return scanId === activeScanId;
 }
 
+/**
+ * Sends a message to the content script in `tabId`, swallowing delivery
+ * failures. The tab may be closed, navigated away, or have no content script
+ * (e.g. it was already open when the extension was installed/reloaded) — in
+ * every one of those cases there is nobody listening, and the rejected
+ * sendMessage would otherwise surface as an unhandled rejection in the
+ * service worker.
+ *
+ * The send is awaited, so this relies on the content script's listener
+ * returning `undefined` (content.js never calls sendResponse) — Chrome then
+ * settles the promise immediately. If that listener ever returns `true`, the
+ * promise would never settle and every awaiting caller would hang.
+ *
+ * Returns whether the message was delivered.
+ */
+async function sendToTab(tabId, message) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (err) {
+    console.warn('Tab message dropped', { type: message.type, tabId, error: err?.message });
+    return false;
+  }
+}
+
+/**
+ * Starts the cooldown and reports when scanning may resume. If the cooldown
+ * can't be persisted (e.g. a storage quota error) the tab still has to be
+ * told to back off, so fall back to the base duration.
+ */
+async function startCooldownSafely() {
+  try {
+    return await startCooldown();
+  } catch (err) {
+    console.warn('Failed to persist cooldown', { error: err?.message });
+    return Date.now() + BASE_COOLDOWN_MS;
+  }
+}
+
 /** Entry point for a SCAN request: checks for an active cooldown before doing any work. */
 export async function handleScanRequest(variants, tabId, scanId) {
-  const cooldownUntil = await getCooldown();
+  // A storage read failure must not skip the cooldown check, but it shouldn't
+  // kill the scan either. Fail closed — assume a cooldown is active for the
+  // base duration rather than bursting requests at an already-flagged network.
+  // The next scan request re-reads storage, so a spurious wait is one-shot.
+  let cooldownUntil = 0;
+  try {
+    cooldownUntil = await getCooldown();
+  } catch (err) {
+    console.warn('Failed to read cooldown', { error: err?.message });
+    cooldownUntil = Date.now() + BASE_COOLDOWN_MS;
+  }
   if (Date.now() < cooldownUntil) {
-    chrome.tabs.sendMessage(tabId, { type: 'BLOCKED', retryAt: cooldownUntil });
+    await sendToTab(tabId, { type: 'BLOCKED', retryAt: cooldownUntil });
     return;
   }
   await runScan(variants, tabId, scanId);
@@ -48,19 +97,29 @@ async function runScan(variants, tabId, scanId) {
         if (blockedHits >= blockThreshold) {
           aborted = true;
           queue.length = 0;
-          const retryAt = await startCooldown();
-          chrome.tabs.sendMessage(tabId, { type: 'BLOCKED', retryAt });
+          const retryAt = await startCooldownSafely();
+          await sendToTab(tabId, { type: 'BLOCKED', retryAt });
           return;
         }
         continue;
       }
 
-      chrome.tabs.sendMessage(tabId, {
+      const delivered = await sendToTab(tabId, {
         type: 'RESULT',
         asin: variant.asin,
         name: variant.name,
         prices,
       });
+
+      // The tab went away (closed or navigated), so nobody is listening.
+      // Stop fetching instead of hammering Amazon for a scan no one will
+      // see — an abandoned scan can still trip the block threshold and lock
+      // the user out of every tab with a site-wide cooldown.
+      if (!delivered) {
+        aborted = true;
+        queue.length = 0;
+        return;
+      }
 
       await delay(MIN_DELAY_MS + Math.random() * JITTER_MS);
     }
@@ -69,8 +128,14 @@ async function runScan(variants, tabId, scanId) {
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, variants.length) }, worker));
 
   if (isCurrentScan(scanId) && !aborted) {
-    await clearBlockStreak();
-    chrome.tabs.sendMessage(tabId, { type: 'DONE' });
+    // A storage failure here must not suppress the DONE signal — the panel
+    // would otherwise sit at "scanning" forever.
+    try {
+      await clearBlockStreak();
+    } catch (err) {
+      console.warn('Failed to clear block streak', { error: err?.message });
+    }
+    await sendToTab(tabId, { type: 'DONE' });
   }
 }
 

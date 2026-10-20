@@ -122,10 +122,16 @@
     const url = chrome.runtime.getURL('panel/panel.html');
     const html = await (await fetch(url)).text();
 
+    // Parse the panel markup into an inert document rather than assigning it
+    // with innerHTML: a DOMParser document never executes scripts and never
+    // runs the string through the live HTML fragment parser, so it can only
+    // ever produce inert nodes.
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+
     const container = document.createElement('div');
     container.id = 'abps-panel-root';
     container.style.display = 'none';
-    container.innerHTML = html;
+    container.replaceChildren(...parsed.body.childNodes);
 
     document.body.appendChild(container);
   }

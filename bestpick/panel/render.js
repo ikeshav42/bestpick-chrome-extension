@@ -7,7 +7,6 @@
     overallBest,
     conditionHasAnyResults,
     compareRows,
-    escapeHtml,
     getPackInfo,
     distinctDimensionValues,
     computeFilteredVariants,
@@ -34,24 +33,34 @@
 
     const { dimensions, labels } = state.dimensionData;
 
-    container.innerHTML = dimensions
-      .map((dim, i) => {
-        const values = distinctDimensionValues(state.dimensionData, i);
-        const selected = state.filters[dim] || 'ANY';
-        const options = ['ANY', ...values]
-          .map((v) => {
-            const label = v === 'ANY' ? 'Any' : v;
-            const isSelected = v === selected ? ' selected' : '';
-            return `<option value="${escapeHtml(v)}"${isSelected}>${escapeHtml(label)}</option>`;
-          })
-          .join('');
-        return `
-          <div class="abps-filter-field" data-dim="${escapeHtml(dim)}">
-            <label>${escapeHtml(labels[dim] || dim)}</label>
-            <select>${options}</select>
-          </div>`;
-      })
-      .join('');
+    // Built with DOM APIs instead of an HTML string: the dimension keys and
+    // their labels come from Amazon's page data, so they must never be
+    // interpolated into markup.
+    const fields = dimensions.map((dim, i) => {
+      const values = distinctDimensionValues(state.dimensionData, i);
+      const selected = state.filters[dim] || 'ANY';
+
+      const select = document.createElement('select');
+      for (const v of ['ANY', ...values]) {
+        const option = document.createElement('option');
+        option.value = v;
+        option.textContent = v === 'ANY' ? 'Any' : v;
+        option.selected = v === selected;
+        select.appendChild(option);
+      }
+
+      const field = document.createElement('div');
+      field.className = 'abps-filter-field';
+      field.dataset.dim = dim;
+
+      const label = document.createElement('label');
+      label.textContent = labels[dim] || dim;
+
+      field.append(label, select);
+      return field;
+    });
+
+    container.replaceChildren(...fields);
 
     updateFilterWarning();
   };
@@ -221,29 +230,50 @@
 
     rows.sort((a, b) => compareRows(a, b, state.sortBy));
 
-    tbody.innerHTML = rows
-      .map((row) => {
-        const priceLabel = row.pending ? '…' : row.price != null ? `$${row.price.toFixed(2)}` : '—';
-        const pack = row.price != null ? getPackInfo(row.price, row.name) : null;
-        const packBadge = pack ? `<div class="abps-pack-badge">${escapeHtml(packLabel(pack))}</div>` : '';
-        const isBest = row.price != null && row.price === cheapest;
-        const rowClass = row.price == null && !row.pending ? 'abps-dim' : '';
-        const url = `https://www.amazon.com/gp/offer-listing/${row.asin}`;
-        const link =
-          row.price != null
-            ? `<a href="${url}" target="_blank" rel="noopener">View</a>`
-            : row.pending
-            ? ''
-            : '(none)';
+    const tbodyRows = rows.map((row) => {
+      const priceLabel = row.pending ? '…' : row.price != null ? `$${row.price.toFixed(2)}` : '—';
+      const pack = row.price != null ? getPackInfo(row.price, row.name) : null;
+      const isBest = row.price != null && row.price === cheapest;
+      const rowClass = row.price == null && !row.pending ? 'abps-dim' : '';
 
-        return `
-          <tr class="${rowClass}">
-            <td>${isBest ? '★ ' : ''}${escapeHtml(row.name)}</td>
-            <td>${priceLabel}${packBadge}</td>
-            <td>${link}</td>
-          </tr>`;
-      })
-      .join('');
+      // The ASIN and the variant name both come from Amazon's page data, so
+      // they are set as text/property values — never interpolated into markup.
+      const nameCell = document.createElement('td');
+      if (isBest) nameCell.append('★ ');
+      nameCell.append(row.name);
+
+      const priceCell = document.createElement('td');
+      priceCell.append(priceLabel);
+      if (pack) {
+        const badge = document.createElement('div');
+        badge.className = 'abps-pack-badge';
+        badge.textContent = packLabel(pack);
+        priceCell.append(badge);
+      }
+
+      const linkCell = document.createElement('td');
+      if (row.price != null) {
+        const link = document.createElement('a');
+        // The ASIN is page-controlled, so it is reduced to a safe path segment
+        // rather than escaped: that drops quotes and separators, and also the
+        // lone surrogates that would make encodeURIComponent throw.
+        const asin = String(row.asin ?? '').replace(/[^A-Za-z0-9-]/g, '');
+        link.href = `https://www.amazon.com/gp/offer-listing/${asin}`;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'View';
+        linkCell.append(link);
+      } else if (!row.pending) {
+        linkCell.append('(none)');
+      }
+
+      const tr = document.createElement('tr');
+      tr.className = rowClass;
+      tr.append(nameCell, priceCell, linkCell);
+      return tr;
+    });
+
+    tbody.replaceChildren(...tbodyRows);
 
     status.textContent = `Showing: ${CONDITION_LABELS[state.activeCondition]} — ${state.total} variants`;
   };
